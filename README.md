@@ -1,6 +1,6 @@
-Covid_Python
+# Covid_Python
 
-Desafio do curso Engenheiro de dados Semantix
+# Desafio do curso Engenheiro de dados Semantix
 
 Para o projeto de Campanha nacional de vacinação de Covid-19 foi feito apenas o nível básico.
 Apenas as questões 6,8 e 9 não foram feitas.
@@ -37,5 +37,5 @@ create database covid;
 
 -----
 
-O projeto foi feito utilizando o Jupyter-notebook foi exportado o seguinte arquivo: Casos_Covid.ipynb em complemento também existe o arquivo covid_comandos_jupyter_notebook.txt, onde possui todos os comandos utilizado no jupyter-notebook
+O projeto foi feito utilizando o Jupyter-notebook, foi exportado o seguinte arquivo: Casos_Covid.ipynb em complemento também foi criado o arquivo covid_comandos_jupyter_notebook.txt, onde possui todos os comandos utilizado no jupyter-notebook para auxiliar.
 
