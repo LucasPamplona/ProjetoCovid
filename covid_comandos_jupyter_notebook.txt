@@ -1,0 +1,95 @@
+
+from pyspark.sql import *
+from pyspark.sql.types import *
+from pyspark.sql.functions import *
+
+#Setar o banco de dados Hive para a database Covid
+spark.catalog.setCurrentDatabase("covid")
+
+#Criar estrutura dos arquivos
+columns_list = [
+StructField("regiao", StringType()),
+StructField("estado", StringType()),
+StructField("municipio", StringType()),
+StructField("coduf", StringType()),
+StructField("codmun", StringType()),
+StructField("codRegiaoSaude", StringType()),
+StructField("nomeRegiaoSaude", StringType()),
+StructField("data", StringType()),
+StructField("semanaEpi", StringType()),
+StructField("populacaoTCU2019", IntegerType()),
+StructField("casosAcumulado", IntegerType()),
+StructField("casosNovos", IntegerType()),
+StructField("obitosAcumulado", IntegerType()),
+StructField("obitosNovos", IntegerType()),
+StructField("Recuperadosnovos", IntegerType()),
+StructField("emAcompanhamentoNovos", IntegerType()),
+StructField("interior/metropolitana", IntegerType())]
+
+name_schema = StructType(columns_list)
+
+#Importar os arquivos historico de Covid Brasil
+covidDF = spark.read.csv("/user/lucas/data/covid",header='true',sep=';',schema=name_schema)
+
+# Salvar como table hive particionada por municipio
+covidDF.write.saveAsTable("covid",partitionBy="municipio")
+
+#Conferir tabela criada 
+!hdfs dfs -ls /user/hive/warehouse/covid.db/
+
+# Primeira vizualização,foi separada em dois data frames para agrupar o ultimo registro de casos novos de status Em acompanhamento.
+covidRecuperados = covidDF.agg(max("Recuperadosnovos").alias("Casos_Recuperados"),last("data").alias("data"))
+
+covidAcompanhamentoNovos = covidDF.groupBy("data").agg(max("emAcompanhamentoNovos").alias("Casos novos")).sort(desc("data"))
+covidAcompanhamento = covidAcompanhamentoNovos.agg(first("Casos novos").alias("Em_acompanhamento"),first("data").alias("data"))
+
+covidRecuperadosAcompanhamentoJoin = covidRecuperados.join(covidAcompanhamento, covidRecuperados.data == covidAcompanhamento.data,"inner")
+covidRecuperadosAcompanhamento = covidRecuperadosAcompanhamentoJoin.select("Casos_Recuperados","Em_acompanhamento")
+covidRecuperadosAcompanhamento.show()
+
+# Segunda vizualização,foi separada em dois data frames para agrupar o ultimo registro de casos novos de covid.
+covidAcumuladoIncidencia = covidDF.agg(max("casosAcumulado").alias("Acumulado"),format_number(max("casosAcumulado")/max("populacaoTCU2019")*100000,1).alias("Incidencia"),last("data").alias("data"))
+
+covidCasosNovos = covidDF.groupBy("data").agg(max("casosNovos").alias("Casos novos")).sort(desc("data"))
+covidCasos = covidCasosNovos.agg(first("Casos novos").alias("Casos_novos"),first("data").alias("data"))
+
+covidAcumuladoIncidenciaCasosJoin = covidAcumuladoIncidencia.join(covidCasos, covidAcumuladoIncidencia.data == covidCasos.data,"inner")
+covidAcumuladoIncidenciaCasos = covidAcumuladoIncidenciaCasosJoin.select("Acumulado","Casos_novos","Incidencia")
+covidAcumuladoIncidenciaCasos.show()
+
+# Terceira vizualização,foi separada em dois data frames para agrupar o ultimo registro de casos novos de obitos.
+
+covidObitos = covidDF.agg(max("obitosAcumulado").alias("Obitos acumulados"),format_number(max("obitosAcumulado")/max("casosAcumulado")*100,1).alias("Letalidade"),format_number(max("obitosAcumulado")/max("populacaoTCU2019")*100000,1).alias("Mortalidade"),last("data").alias("data"))
+
+covidObitosNovos = covidDF.groupBy("data").agg(max("obitosNovos").alias("Obitos novos")).sort(desc("data"))
+covidCasosObitos = covidObitosNovos.agg(first("Obitos novos").alias("Casos novos"),first("data").alias("data"))
+
+covidObitosCasosObitosML = covidObitos.join(covidCasosObitos, covidObitos.data == covidCasosObitos.data,"inner")
+covidObitosCasosObitosMortalidade = covidObitosCasosObitosML.select("Obitos acumulados","Casos novos","Letalidade","Mortalidade")
+covidObitosCasosObitosMortalidade.show()
+
+
+
+# Salvar primeira vizualização como uma tabela Hive
+covidRecuperadosAcompanhamento.write.saveAsTable("covid_recuperados")
+
+
+# Salvar segunda vizualização no HDFS com formato parquet compressão snappy
+covidAcumuladoIncidenciaCasos.write.parquet("/user/lucas/data/covid/casos_confirmados",compression="snappy")
+
+# Salvar terceira vizualização em um tópico no Kafka, não funcionou 
+covidObitosCasosObitosMortalidade.writeStream.format("kafka")\
+.option("kafka.bootstrap.servers","kafka:9092").option("topic","topic-kvspark-covid")\
+.option("checkpointLocation","hdfs://namenode:8020/user/lucas/kafka_stream_covid/check").start()
+
+
+# Carregar a primeira vizualização salva como tabela Hive
+recuperados = spark.read.table("covid_recuperados")
+recuperados.show()
+
+# Carregar a segunda vizualização salva no HDFS com o formato Parquet
+casosConfirmados = spark.read.parquet("/user/lucas/data/covid/casos_confirmados")
+casosConfirmados.show()
+
+
+
