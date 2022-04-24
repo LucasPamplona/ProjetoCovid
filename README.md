@@ -14,12 +14,15 @@ Foi utilizado como ambiente de estudo o docker Big data do Instrutor Rodrigo Aug
 # Configurar o jar do spark para aceitar o formato parquet em tabelas Hive
 
 curl -O https://repo1.maven.org/maven2/com/twitter/parquet-hadoop-bundle/1.6.0/parquet-hadoop-bundle-1.6.0.jar  
+
 docker cp parquet-hadoop-bundle-1.6.0.jar jupyter-spark:/opt/spark/jars
 
 #Executar o namenode para copiar os arquivos para o HDFS
+
 docker exec -it namenode bash
 
 #Subir os arquivos para o HDFS salvos no diretorio /input/covid/
+
 hdfs dfs -put /input/covid/ /user/lucas/data/covid
 
 
