@@ -17,11 +17,11 @@ curl -O https://repo1.maven.org/maven2/com/twitter/parquet-hadoop-bundle/1.6.0/p
 
 docker cp parquet-hadoop-bundle-1.6.0.jar jupyter-spark:/opt/spark/jars
 
-#Executar o namenode para copiar os arquivos para o HDFS
+# Executar o namenode para copiar os arquivos para o HDFS
 
 docker exec -it namenode bash
 
-#Subir os arquivos para o HDFS salvos no diretorio /input/covid/
+# Subir os arquivos para o HDFS salvos no diretorio /input/covid/
 
 hdfs dfs -put /input/covid/ /user/lucas/data/covid
 
